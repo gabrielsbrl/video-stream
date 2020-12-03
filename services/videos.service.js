@@ -31,6 +31,19 @@ class VideosService {
             }
         }));
     }
+    
+    insertVideos(videosToInsert) {
+        let query = 'INSERT INTO videos (original_name, stored_name, path_video) VALUES ?';
+        return new Promise((resolve, reject) => connection.query(query, [videosToInsert], (err, response) => {
+            if(err) {
+                console.log('err insertVideo: ', err);
+                reject(err);
+            } else {
+                console.log('response insertVideo: ', response)
+                resolve(response);
+            }
+        }));
+    }
 
     insertVideo(videoToInsert) {
         let query = 'INSERT INTO videos SET ?';
@@ -63,11 +76,7 @@ class VideosService {
         return dataToSave.map(d => {
             let tempFileName = uuid.v4() + '.mp4';
             let filePath = path.resolve(__dirname, '../uploads/', tempFileName);            
-            let fileData = {
-                original_name: d.name,
-                stored_name: tempFileName,
-                path_video: filePath
-            };
+            let fileData = [ d.name, tempFileName, filePath ];
             return new Promise((resolve, reject) => d.mv(filePath, err => {
                 if(err) reject(err);
                 resolve(fileData);

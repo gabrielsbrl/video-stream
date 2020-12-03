@@ -85,17 +85,17 @@ class VideosController {
             let filesToMove = videosService.saveFilesToFolder(dataToUpload);  
             Promise.all(filesToMove)
                 .then(response => {
-                    videosService.insertVideo(response)
-                        .then(response => res.status(206).json({
+                    videosService.insertVideos(response)
+                        .then(resultInsert => res.status(206).json({
                             status: true,
                             message: null,
-                            data: response
+                            data: resultInsert
                         }))
                         .catch(error => res.status(500).json({
                             status: true,
                             message: error,
                             data: null
-                        }));
+                        })); 
                 })
                 .catch(error => console.log(error));         
         } else {
