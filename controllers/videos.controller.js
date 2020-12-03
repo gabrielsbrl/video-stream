@@ -43,7 +43,7 @@ class VideosController {
     }
 
     static streamVideo(videoName, req, res) {
-        const movieFile = path.resolve('../uploads', videoName);
+        const movieFile = path.resolve(__dirname, '../uploads/', videoName);
         
         fs.stat(movieFile, (error, stats) => {
           if (error) {
