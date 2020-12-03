@@ -1,7 +1,6 @@
 const videosService = require('../services/videos.service');
 const path = require('path');
 const fs = require('fs');
-const uuid = require('uuid');
 
 class VideosController {
 
@@ -27,9 +26,8 @@ class VideosController {
     getById(req, res) {
         let { id } = req.params;
         videosService.getById(id)
-            .then(response => {    
-                console.log('response: ', response);            
-                VideosController.streamVideo(response.path_video, req, res);
+            .then(response => {             
+                VideosController.streamVideo(response.stored_name, req, res);
             })
             .catch(error => {
                 res.json({
@@ -44,11 +42,10 @@ class VideosController {
         VideosController.postVideo(req, res);
     }
 
-    static streamVideo(videoPath, req, res) {
-        const movieFile = path.resolve(videoPath);
+    static streamVideo(videoName, req, res) {
+        const movieFile = path.resolve('../uploads', videoName);
         
         fs.stat(movieFile, (error, stats) => {
-            console.log('from fs stat');
           if (error) {
             console.log(error);
             return res.status(404).json({
@@ -80,57 +77,44 @@ class VideosController {
         });
     }
 
-    static postVideo(req, res) {
+    static postVideo(req, res) {      
         
-        console.log('+ post - videos\n');
-        console.log(req.files.video);
-        console.log('+ filename: \n');
-        console.log(req.body.name);
+        let dataToUpload = req.files.video;
 
-        let videoToUpload = req.files.video;
-        let originalFileName = req.body.name + '.mp4';
-        let tempFileName = uuid.v4() + '.mp4';
-
-        videoToUpload.mv(
-            path.resolve(__dirname, 'uploads', tempFileName), 
-            err => 
-        {
-            if(err) {                
-                console.log('- error on upload: ', err);
-                res.json({
-                    status: false,
-                    message: err,
-                    data: null
-                });
-            } else {
-                console.log('- file uploaded!');
-                
-                let pathVideo = path.resolve(__dirname, 'uploads', tempFileName).replace(/\\/g, "\\\\").replace(/\$/g, "\\$").replace(/'/g, "\\'").replace(/"/g, "\\\"");
-
-                let videoToInsert = {
-                    original_name: originalFileName,
-                    stored_name: tempFileName,
-                    path_video: pathVideo
-                };
-
-                videosService.insertVideo(videoToInsert)
-                    .then(response => {
-                        res.json({
+        if(dataToUpload.length >= 2) {
+            let filesToMove = videosService.saveFilesToFolder(dataToUpload);  
+            Promise.all(filesToMove)
+                .then(response => {
+                    videosService.insertVideo(response)
+                        .then(response => res.status(206).json({
                             status: true,
                             message: null,
                             data: response
-                        });
-                    })
-                    .catch(error => {
-                        res.json({
-                            status: false,
+                        }))
+                        .catch(error => res.status(500).json({
+                            status: true,
                             message: error,
                             data: null
-                        });
-                    });
-
-            }
-        });        
+                        }));
+                })
+                .catch(error => console.log(error));         
+        } else {
+            videosService.saveFileToFolder(dataToUpload)
+                .then(response => {
+                    videosService.insertVideo(response)
+                    .then(response => res.status(206).json({
+                        status: true,
+                        message: null,
+                        data: response
+                    }))
+                    .catch(error => res.status(500).json({
+                        status: true,
+                        message: error,
+                        data: null
+                    }));
+                })
+                .catch(error => console.log(error));
+        }
     }
 
 }

@@ -1,4 +1,6 @@
 const connection = require('../infraestructure/connection.service');
+const uuid = require('uuid');
+const path = require('path');
 
 class VideosService {
     getAll() {
@@ -41,6 +43,36 @@ class VideosService {
                 resolve(response);
             }
         }));
+    }
+
+    saveFileToFolder(dataToSave) {
+        let tempFileName = uuid.v4() + '.mp4';
+        let filePath = path.resolve(__dirname, '../uploads/', tempFileName);
+        let fileData = {
+            original_name: dataToSave.name,
+            stored_name: tempFileName,
+            path_video: filePath
+        };
+        return new Promise((resolve, reject) => dataToSave.mv(filePath, err => {
+            if(err) reject(err);
+            resolve(fileData);
+        }))
+    }
+
+    saveFilesToFolder(dataToSave) {
+        return dataToSave.map(d => {
+            let tempFileName = uuid.v4() + '.mp4';
+            let filePath = path.resolve(__dirname, '../uploads/', tempFileName);            
+            let fileData = {
+                original_name: d.name,
+                stored_name: tempFileName,
+                path_video: filePath
+            };
+            return new Promise((resolve, reject) => d.mv(filePath, err => {
+                if(err) reject(err);
+                resolve(fileData);
+            }))
+        });            
     }
 }
 
