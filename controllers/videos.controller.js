@@ -1,12 +1,31 @@
-const videosService = require('../services/videos.service');
+const VideosService = require('../services/videos.service');
 const path = require('path');
 const fs = require('fs');
-const uuid = require('uuid');
 
 class VideosController {
 
+    constructor() {
+        console.log('+ videos controller instanciado');
+        this.videosService = new VideosService();
+    }
+
+    getVideoThumb(req, res) {
+        let { videoHash } = req.params;
+        this.videosService.getThumbByHash(videoHash)
+            .then(response => {           
+                res.sendFile(path.resolve(__dirname, '../storage/thumbs/' + response.thumb));
+            })
+            .catch(error => {
+                res.json({
+                    status: false,
+                    message: error,
+                    data: null
+                });
+            });            
+    }
+
     getAll(req, res) {
-        videosService.getAll()
+        this.videosService.getAll()
             .then(response => {
                 let videos = response;
                 res.json({
@@ -23,13 +42,31 @@ class VideosController {
                 });
             });     
     }
+    
+    streamVideo(req, res) {
+        let { videoHash } = req.params;
+        this.videosService.getByHashToStream(videoHash)
+            .then(response => {           
+                this.stream(response.videoName, req, res);
+            })
+            .catch(error => {
+                res.json({
+                    status: false,
+                    message: error,
+                    data: null
+                });
+            });        
+    }
 
-    getById(req, res) {
-        let { id } = req.params;
-        videosService.getById(id)
-            .then(response => {    
-                console.log('response: ', response);            
-                VideosController.streamVideo(response.path_video, req, res);
+    getByHash(req, res) {
+        let { videoHash } = req.params;
+        this.videosService.getByHash(videoHash)
+            .then(response => {           
+                res.json({
+                    status: true,
+                    message: null,
+                    data: response
+                });  
             })
             .catch(error => {
                 res.json({
@@ -41,14 +78,30 @@ class VideosController {
     }
 
     postVideo(req, res) {
-        VideosController.postVideo(req, res);
+        console.log('+ videos - POST');
+        let videosToUpload = req.files.video;
+        this.videosService.uploadVideo(videosToUpload)
+            .then(() => {
+                res.status(201).json({
+                    status: true,
+                    message: null,
+                    data: null
+                })
+            })
+            .catch(error => {
+                res.status(500).json({
+                    status: false,
+                    message: error,
+                    data: null
+                });
+            }); 
     }
 
-    static streamVideo(videoPath, req, res) {
-        const movieFile = path.resolve(videoPath);
+    stream(videoName, req, res) {
+        console.log('VIDEO NAME: ', videoName);
+        const movieFile = path.resolve(__dirname, '../storage/videos/', videoName);
         
         fs.stat(movieFile, (error, stats) => {
-            console.log('from fs stat');
           if (error) {
             console.log(error);
             return res.status(404).json({
@@ -80,59 +133,6 @@ class VideosController {
         });
     }
 
-    static postVideo(req, res) {
-        
-        console.log('+ post - videos\n');
-        console.log(req.files.video);
-        console.log('+ filename: \n');
-        console.log(req.body.name);
-
-        let videoToUpload = req.files.video;
-        let originalFileName = req.body.name + '.mp4';
-        let tempFileName = uuid.v4() + '.mp4';
-
-        videoToUpload.mv(
-            path.resolve(__dirname, 'uploads', tempFileName), 
-            err => 
-        {
-            if(err) {                
-                console.log('- error on upload: ', err);
-                res.json({
-                    status: false,
-                    message: err,
-                    data: null
-                });
-            } else {
-                console.log('- file uploaded!');
-                
-                let pathVideo = path.resolve(__dirname, 'uploads', tempFileName).replace(/\\/g, "\\\\").replace(/\$/g, "\\$").replace(/'/g, "\\'").replace(/"/g, "\\\"");
-
-                let videoToInsert = {
-                    original_name: originalFileName,
-                    stored_name: tempFileName,
-                    path_video: pathVideo
-                };
-
-                videosService.insertVideo(videoToInsert)
-                    .then(response => {
-                        res.json({
-                            status: true,
-                            message: null,
-                            data: response
-                        });
-                    })
-                    .catch(error => {
-                        res.json({
-                            status: false,
-                            message: error,
-                            data: null
-                        });
-                    });
-
-            }
-        });        
-    }
-
 }
 
-module.exports = new VideosController();
+module.exports = VideosController;
