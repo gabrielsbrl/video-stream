@@ -1,11 +1,31 @@
-const videosService = require('../services/videos.service');
+const VideosService = require('../services/videos.service');
 const path = require('path');
 const fs = require('fs');
 
 class VideosController {
 
+    constructor() {
+        console.log('+ videos controller instanciado');
+        this.videosService = new VideosService();
+    }
+
+    getVideoThumb(req, res) {
+        let { videoHash } = req.params;
+        this.videosService.getThumbByHash(videoHash)
+            .then(response => {           
+                res.sendFile(path.resolve(__dirname, '../storage/thumbs/' + response.thumb));
+            })
+            .catch(error => {
+                res.json({
+                    status: false,
+                    message: error,
+                    data: null
+                });
+            });            
+    }
+
     getAll(req, res) {
-        videosService.getAll()
+        this.videosService.getAll()
             .then(response => {
                 let videos = response;
                 res.json({
@@ -22,12 +42,31 @@ class VideosController {
                 });
             });     
     }
+    
+    streamVideo(req, res) {
+        let { videoHash } = req.params;
+        this.videosService.getByHashToStream(videoHash)
+            .then(response => {           
+                this.stream(response.videoName, req, res);
+            })
+            .catch(error => {
+                res.json({
+                    status: false,
+                    message: error,
+                    data: null
+                });
+            });        
+    }
 
-    getById(req, res) {
-        let { id } = req.params;
-        videosService.getById(id)
-            .then(response => {             
-                VideosController.streamVideo(response.stored_name, req, res);
+    getByHash(req, res) {
+        let { videoHash } = req.params;
+        this.videosService.getByHash(videoHash)
+            .then(response => {           
+                res.json({
+                    status: true,
+                    message: null,
+                    data: response
+                });  
             })
             .catch(error => {
                 res.json({
@@ -39,11 +78,28 @@ class VideosController {
     }
 
     postVideo(req, res) {
-        VideosController.postVideo(req, res);
+        console.log('+ videos - POST');
+        let videosToUpload = req.files.video;
+        this.videosService.uploadVideo(videosToUpload)
+            .then(() => {
+                res.status(201).json({
+                    status: true,
+                    message: null,
+                    data: null
+                })
+            })
+            .catch(error => {
+                res.status(500).json({
+                    status: false,
+                    message: error,
+                    data: null
+                });
+            }); 
     }
 
-    static streamVideo(videoName, req, res) {
-        const movieFile = path.resolve(__dirname, '../uploads/', videoName);
+    stream(videoName, req, res) {
+        console.log('VIDEO NAME: ', videoName);
+        const movieFile = path.resolve(__dirname, '../storage/videos/', videoName);
         
         fs.stat(movieFile, (error, stats) => {
           if (error) {
@@ -77,46 +133,6 @@ class VideosController {
         });
     }
 
-    static postVideo(req, res) {      
-        
-        let dataToUpload = req.files.video;
-
-        if(dataToUpload.length >= 2) {
-            let filesToMove = videosService.saveFilesToFolder(dataToUpload);  
-            Promise.all(filesToMove)
-                .then(response => {
-                    videosService.insertVideos(response)
-                        .then(resultInsert => res.status(206).json({
-                            status: true,
-                            message: null,
-                            data: resultInsert
-                        }))
-                        .catch(error => res.status(500).json({
-                            status: true,
-                            message: error,
-                            data: null
-                        })); 
-                })
-                .catch(error => console.log(error));         
-        } else {
-            videosService.saveFileToFolder(dataToUpload)
-                .then(response => {
-                    videosService.insertVideo(response)
-                    .then(response => res.status(206).json({
-                        status: true,
-                        message: null,
-                        data: response
-                    }))
-                    .catch(error => res.status(500).json({
-                        status: true,
-                        message: error,
-                        data: null
-                    }));
-                })
-                .catch(error => console.log(error));
-        }
-    }
-
 }
 
-module.exports = new VideosController();
+module.exports = VideosController;

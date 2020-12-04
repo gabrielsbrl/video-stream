@@ -1,4 +1,6 @@
 node_modules/
+storage/
+thumbnails/
 uploads/
 .DS_Store
 .DS_STORE
